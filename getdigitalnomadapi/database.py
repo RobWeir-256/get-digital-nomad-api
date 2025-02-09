@@ -1,6 +1,9 @@
-from datetime import datetime, timezone
+import logging
+import uuid
 from sqlmodel import SQLModel, Session, create_engine, select
-from models import Hero, HeroTeamLink, Team, User, UserCreate, UserUpdate
+from .models import Country, Hero, HeroTeamLink, Team, User
+
+logger = logging.getLogger(__name__)
 
 sqlite_file_name = "get-digital-nomand.db"
 sqlite_url = f"sqlite:///{sqlite_file_name}"
@@ -17,15 +20,15 @@ def get_session():
         yield session
 
 
-def seed():
+def seed_db():
     create_users()
-    create_heroes()
-    update_heroes()
+    create_countries()
+    # create_heroes()
+    # update_heroes()
 
 
 def create_users():
     with Session(engine) as session:
-        current_datetime = datetime.now(timezone.utc)
         user_list = [
             {
                 "username": "johndoe",
@@ -33,8 +36,7 @@ def create_users():
                 "full_name": "John Doe",
                 "hashed_password": "$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vjPGga31lW",
                 "disabled": False,
-                "created_at": current_datetime,
-                "updated_at": current_datetime,
+                "admin": False,
             },
             {
                 "username": "rweir",
@@ -42,23 +44,54 @@ def create_users():
                 "full_name": "Rob Weir",
                 "hashed_password": "$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vjPGga31lW",
                 "disabled": False,
-                "created_at": current_datetime,
-                "updated_at": current_datetime,
+                "admin": True,
             },
         ]
-        for user in user_list:
-            user_db = User(**user)
+        for new_user in user_list:
+            user_db = User(**new_user)
             user = session.exec(select(User).where(User.email == user_db.email)).first()
             if user is None:
                 session.add(user_db)
-
         session.commit()
 
 
-def get_user(username: str):
+def get_user_by_username(username: str):
     with Session(engine) as session:
         user = session.exec(select(User).where(User.username == username)).first()
         return user
+
+def get_user_by_id(id: uuid.UUID):
+    with Session(engine) as session:
+        return session.get(User, id)
+
+def create_countries():
+    with Session(engine) as session:
+        country_list = [
+            {
+                "name": "United Arab Emirates",
+                "official_state_name": "the United Arab Emirates",
+                "code": "AE",
+            },
+            {
+                "name": "France",
+                "official_state_name": "the French Republic",
+                "code": "FR",
+                "schengen": True,
+            },
+            {
+                "name": "United Kingdom",
+                "official_state_name": "the United Kingdom of Great Britain and Northern Ireland",
+                "code": "GB",
+            },
+        ]
+        for new_country in country_list:
+            country_db = Country(**new_country)
+            country = session.exec(
+                select(Country).where(Country.name == country_db.name)
+            ).first()
+            if country is None:
+                session.add(country_db)
+        session.commit()
 
 
 def create_heroes():
@@ -129,3 +162,28 @@ def update_heroes():
 
         for link in hero_spider_boy.team_links:
             print("Spider-Boy team:", link.team, "is training:", link.is_training)
+
+
+"""
+User
+"""
+
+
+# def db_read_users(offset: int = 0, limit: int = 100):
+#     with Session(engine) as session:
+#         users = session.exec(select(User).offset(offset).limit(limit)).all()
+#         return users
+
+
+# def db_read_user(user_id: uuid.UUID):
+#     with Session(engine) as session:
+#         user = session.get(User, user_id)
+#         return user
+
+
+# def db_create_user(user: User):
+#     with Session(engine) as session:
+#         session.add(user)
+#         session.commit()
+#         session.refresh(user)
+#         return user

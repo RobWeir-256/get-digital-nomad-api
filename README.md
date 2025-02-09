@@ -24,7 +24,7 @@ pip install -r requirements-dev.txt - only for use on DEV box
 Run App
 
 ```
-uvicorn main:app --reload --host localhost --port 8000
+uvicorn getdigitalnomadapi.main:app --reload --host localhost --port 8000
 ```
 
 Make new GitHub repo.

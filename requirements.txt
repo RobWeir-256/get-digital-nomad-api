@@ -1,6 +1,7 @@
 bcrypt
 fastapi
 passlib
+pydantic[email]
 pyJWT
 python-dotenv
 python-multipart
