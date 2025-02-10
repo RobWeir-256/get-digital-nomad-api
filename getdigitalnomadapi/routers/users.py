@@ -6,9 +6,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlmodel import select
 from sqlalchemy.exc import IntegrityError
 
-from ..dependencies import SessionDep, get_current_active_user
+from ..dependencies import SessionDep, get_current_active_user, get_current_admin_user
 from ..models import User, UserCreate, UserPublic
-from ..database import get_user_by_username
+from ..database import get_user_by_email, get_user_by_username
 from ..security import get_password_hash, verify_password
 
 logger = logging.getLogger(__name__)
@@ -19,8 +19,18 @@ router = APIRouter(
 )
 
 
-def authenticate_user(username: str, password: str):
+def auth_user_by_username(username: str, password: str):
     user = get_user_by_username(username)
+    if not user:
+        return False
+    if not verify_password(password, user.hashed_password):
+        return False
+    return user
+
+
+def auth_user_by_email(email: str, password: str):
+    # email lower case only
+    user = get_user_by_email(email.lower())
     if not user:
         return False
     if not verify_password(password, user.hashed_password):
@@ -44,7 +54,10 @@ async def read_own_items(
 
 @router.get("/", response_model=list[UserPublic])
 def read_users(
-    session: SessionDep, offset: int = 0, limit: int = Query(default=100, le=100)
+    current_admin_user: Annotated[User, Depends(get_current_admin_user)],
+    session: SessionDep,
+    offset: int = 0,
+    limit: int = Query(default=100, le=100),
 ) -> list[User]:
     # return db_read_users(offset=offset, limit=limit)
     users = session.exec(select(User).offset(offset).limit(limit)).all()
@@ -53,8 +66,9 @@ def read_users(
 
 @router.get("/{user_id}", response_model=UserPublic)
 def read_user(
-    user_id: uuid.UUID,
+    current_admin_user: Annotated[User, Depends(get_current_admin_user)],
     session: SessionDep,
+    user_id: uuid.UUID,
 ) -> User:
     user = session.get(User, user_id)
     if not user:
@@ -65,7 +79,11 @@ def read_user(
 
 
 @router.delete("/{user_id}")
-def delete_hero(user_id: uuid.UUID, session: SessionDep):
+def delete_hero(
+    current_admin_user: Annotated[User, Depends(get_current_admin_user)],
+    user_id: uuid.UUID,
+    session: SessionDep,
+):
     user = session.get(User, user_id)
     if not user:
         raise HTTPException(
@@ -78,31 +96,10 @@ def delete_hero(user_id: uuid.UUID, session: SessionDep):
 
 @router.post("/", response_model=UserPublic)
 def create_user(new_user: UserCreate, session: SessionDep) -> User:
-    # email needs to be unique check not already in db
-    # db_user = session.exec(select(User).where(User.email == new_user.email)).first()
-    # if db_user is not None:
-    #     detail = {
-    #         "detail": [
-    #             {
-    #                 "type": "missing",
-    #                 "loc": ["body", "username"],
-    #                 "msg": "Field required",
-    #                 "input": {
-    #                     "password": "string",
-    #                     "email": "string",
-    #                     "full_name": "string",
-    #                     "disabled": False,
-    #                     "admin": False,
-    #                 },
-    #             }
-    #         ]
-    #     }
-    #     raise HTTPException(
-    #         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-    #         detail=detail,
-    #     )
     hashed_password = get_password_hash(new_user.password)
     user = User(**new_user.dict(), hashed_password=hashed_password)
+    # email always lower case
+    user.email = user.email.lower()
     try:
         session.add(user)
         session.commit()
