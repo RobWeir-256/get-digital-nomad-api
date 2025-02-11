@@ -1,8 +1,7 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 import uuid
 from pydantic import EmailStr
 from sqlmodel import Field, Relationship, SQLModel
-from typing import List
 
 """
 MySQLModel Model
@@ -39,13 +38,21 @@ class UserBase(MySQLModel):
 
 
 class User(UserBase, table=True):
-    # id: int | None = Field(default=None, primary_key=True)
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
+    id_uuid: uuid.UUID = Field(default_factory=uuid.uuid4, index=True, unique=True)  # Move this up to UserBase
     hashed_password: str
+    visits: list["Visit"] = Relationship(back_populates="user")
 
 
 class UserPublic(UserBase):
-    id: uuid.UUID
+    id_uuid: uuid.UUID
+    visits: list["Visit"]
+
+
+class UserAdmin(UserBase):
+    id: int
+    id_uuid: uuid.UUID
+    visits: list["Visit"]
 
 
 class UserCreate(SQLModel):
@@ -78,19 +85,13 @@ class Token(SQLModel):
 
 class TokenData(SQLModel):
     # username: str | None = None
-    id: uuid.UUID | None = None
+    id_uuid: uuid.UUID | None = None
 
 
 """
-Countries Model
+Country Model
 https://en.wikipedia.org/wiki/List_of_ISO_3166_country_codes
 """
-
-
-# class CountryBase(SQLModel):
-# name: str = Field(index=True, unique=True)
-# official_state_name: str
-# code: str = Field(index=True, unique=True)
 
 
 class Country(MySQLModel, table=True):
@@ -102,31 +103,45 @@ class Country(MySQLModel, table=True):
 
 
 """
+Visit Model
+"""
+
+
+class Visit(MySQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    start: date
+    end: date | None
+    still_visiting: bool = False
+    user_id: int | None = Field(default=None, foreign_key="user.id")
+    user: User | None = Relationship(back_populates="visits")
+
+
+"""
 Hero and Team Model
 """
 
 
-class HeroTeamLink(SQLModel, table=True):
-    team_id: int | None = Field(default=None, foreign_key="team.id", primary_key=True)
-    hero_id: int | None = Field(default=None, foreign_key="hero.id", primary_key=True)
-    is_training: bool = False
+# class HeroTeamLink(SQLModel, table=True):
+#     team_id: int | None = Field(default=None, foreign_key="team.id", primary_key=True)
+#     hero_id: int | None = Field(default=None, foreign_key="hero.id", primary_key=True)
+#     is_training: bool = False
 
-    team: "Team" = Relationship(back_populates="hero_links")
-    hero: "Hero" = Relationship(back_populates="team_links")
-
-
-class Team(SQLModel, table=True):
-    id: int | None = Field(default=None, primary_key=True)
-    name: str = Field(index=True)
-    headquarters: str
-
-    hero_links: list[HeroTeamLink] = Relationship(back_populates="team")
+#     team: "Team" = Relationship(back_populates="hero_links")
+#     hero: "Hero" = Relationship(back_populates="team_links")
 
 
-class Hero(SQLModel, table=True):
-    id: int | None = Field(default=None, primary_key=True)
-    name: str = Field(index=True)
-    secret_name: str
-    age: int | None = Field(default=None, index=True)
+# class Team(SQLModel, table=True):
+#     id: int | None = Field(default=None, primary_key=True)
+#     name: str = Field(index=True)
+#     headquarters: str
 
-    team_links: list[HeroTeamLink] = Relationship(back_populates="hero")
+#     hero_links: list[HeroTeamLink] = Relationship(back_populates="team")
+
+
+# class Hero(SQLModel, table=True):
+#     id: int | None = Field(default=None, primary_key=True)
+#     name: str = Field(index=True)
+#     secret_name: str
+#     age: int | None = Field(default=None, index=True)
+
+#     team_links: list[HeroTeamLink] = Relationship(back_populates="hero")

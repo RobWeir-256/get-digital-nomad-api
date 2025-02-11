@@ -10,7 +10,7 @@ from ..models import Token
 
 logger = logging.getLogger(__name__)
 
-ACCESS_TOKEN_EXPIRE_MINUTES = 5
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24
 
 router = APIRouter(
     prefix="/token",
@@ -32,6 +32,6 @@ async def login_for_access_token(
         )
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": str(user.id)}, expires_delta=access_token_expires
+        data={"sub": str(user.id_uuid)}, expires_delta=access_token_expires
     )
     return Token(access_token=access_token, token_type="bearer")

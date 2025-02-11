@@ -6,7 +6,7 @@ from fastapi.security import OAuth2PasswordBearer
 from jwt import ExpiredSignatureError, InvalidTokenError
 from sqlmodel import Session
 
-from .database import get_session, get_user_by_id, get_user_by_username
+from .database import get_session, get_user_by_id_uuid, get_user_by_username
 from .security import check_jwt
 from .models import TokenData, User
 
@@ -28,7 +28,7 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
         if user_id_str is None:
             logging.error("payload sub:id is None")
             raise credentials_exception
-        token_data = TokenData(id=user_id_str)
+        token_data = TokenData(id_uuid=user_id_str)
     except ExpiredSignatureError as e:
         logging.error(repr(e))
         raise HTTPException(
@@ -40,9 +40,10 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
         logging.error(repr(e))
         raise credentials_exception
 
-    user = get_user_by_id(id=token_data.id)
+    # user = get_user_by_id_uuid(id=token_data.id)
+    user = get_user_by_id_uuid(id_uuid=token_data.id_uuid)
     if user is None:
-        logging.error("UserId %s is not found", token_data.id)
+        logging.error("UserId %s is not found", token_data.id_uuid)
         raise credentials_exception
     return user
 

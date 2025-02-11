@@ -1,12 +1,11 @@
 import logging
 from typing import Annotated
-import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlmodel import select
 from sqlalchemy.exc import IntegrityError
+from sqlmodel import select
 
-from ..dependencies import SessionDep, get_current_active_user, get_current_admin_user
+from ..dependencies import SessionDep, get_current_active_user
 from ..models import User, UserCreate, UserPublic
 from ..database import get_user_by_email, get_user_by_username
 from ..security import get_password_hash, verify_password
@@ -40,62 +39,21 @@ def auth_user_by_email(email: str, password: str):
 
 @router.get("/me/", response_model=UserPublic)
 async def read_users_me(
-    current_user: Annotated[User, Depends(get_current_active_user)],
+    current_user: Annotated[User, Depends(get_current_active_user)], session: SessionDep
 ):
-    return current_user
+    user = session.get(User, current_user.id)
+    return user
 
 
 @router.get("/me/items/")
 async def read_own_items(
     current_user: Annotated[User, Depends(get_current_active_user)],
 ):
-    return [{"item_id": "Foo", "owner": current_user.id}]
-
-
-# @router.get("/", response_model=list[UserPublic])
-# def read_users(
-#     current_admin_user: Annotated[User, Depends(get_current_admin_user)],
-#     session: SessionDep,
-#     offset: int = 0,
-#     limit: int = Query(default=100, le=100),
-# ) -> list[User]:
-#     # return db_read_users(offset=offset, limit=limit)
-#     users = session.exec(select(User).offset(offset).limit(limit)).all()
-#     return users
-
-
-# @router.get("/{user_id}", response_model=UserPublic)
-# def read_user(
-#     current_admin_user: Annotated[User, Depends(get_current_admin_user)],
-#     session: SessionDep,
-#     user_id: uuid.UUID,
-# ) -> User:
-#     user = session.get(User, user_id)
-#     if not user:
-#         raise HTTPException(
-#             status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
-#         )
-#     return user
-
-
-# @router.delete("/{user_id}")
-# def delete_hero(
-#     current_admin_user: Annotated[User, Depends(get_current_admin_user)],
-#     user_id: uuid.UUID,
-#     session: SessionDep,
-# ):
-#     user = session.get(User, user_id)
-#     if not user:
-#         raise HTTPException(
-#             status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
-#         )
-#     session.delete(user)
-#     session.commit()
-#     return {"ok": True}
+    return [{"item_id": "Foo", "owner": current_user.id_uuid}]
 
 
 @router.post("/", response_model=UserPublic)
-def create_user(new_user: UserCreate, session: SessionDep) -> User:
+async def create_user(new_user: UserCreate, session: SessionDep) -> User:
     hashed_password = get_password_hash(new_user.password)
     user = User(**new_user.dict(), hashed_password=hashed_password)
     # email always lower case
@@ -114,3 +72,39 @@ def create_user(new_user: UserCreate, session: SessionDep) -> User:
         session.refresh(user)
 
     return user
+
+
+"""
+These endpoints require admin permission so are under internal.admin.py
+"""
+
+
+# @router.get("/", response_model=list[UserPublic])
+async def read_users(
+    session: SessionDep, offset: int = 0, limit: int = Query(default=100, le=100)
+) -> list[User]:
+    # We have to use session to get data from linked tables 
+    users = session.exec(select(User).offset(offset).limit(limit)).all()
+    return users
+
+
+# @router.get("/{user_id}", response_model=UserPublic)
+async def read_user(session: SessionDep, user_id: int) -> User:
+    user = session.get(User, user_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
+    return user
+
+
+# @router.delete("/{user_id}")
+async def delete_user(session: SessionDep, user_id: int):
+    user = session.get(User, user_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
+    session.delete(user)
+    session.commit()
+    return {"ok": True}
