@@ -39,20 +39,12 @@ class UserBase(MySQLModel):
 
 class User(UserBase, table=True):
     id: int | None = Field(default=None, primary_key=True)
-    id_uuid: uuid.UUID = Field(default_factory=uuid.uuid4, index=True, unique=True)  # Move this up to UserBase
+    id_uuid: uuid.UUID = Field(
+        default_factory=uuid.uuid4, index=True, unique=True
+    )  # Move this up to UserBase
     hashed_password: str
+
     visits: list["Visit"] = Relationship(back_populates="user")
-
-
-class UserPublic(UserBase):
-    id_uuid: uuid.UUID
-    visits: list["Visit"]
-
-
-class UserAdmin(UserBase):
-    id: int
-    id_uuid: uuid.UUID
-    visits: list["Visit"]
 
 
 class UserCreate(SQLModel):
@@ -64,13 +56,25 @@ class UserCreate(SQLModel):
     password: str
 
 
+class UserPublic(UserBase):
+    id_uuid: uuid.UUID
+
+
+class UserPublicWithVisits(UserPublic):
+    visits: list["Visit"]
+
+
+class UserAdmin(UserPublicWithVisits):
+    id: int
+
+
 class UserUpdate(SQLModel):
     username: str | None = None
     hashed_password: str | None = None
-    email: EmailStr | None = None
+    # email: EmailStr | None = None
     full_name: str | None = None
-    disabled: bool | None = None
-    admin: bool | None = None
+    # disabled: bool | None = None
+    # admin: bool | None = None
 
 
 """

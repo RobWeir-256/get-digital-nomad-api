@@ -11,7 +11,8 @@ logger = logging.getLogger(__name__)
 sqlite_file_name = "get-digital-nomand.db"
 sqlite_url = f"sqlite:///{sqlite_file_name}"
 
-engine = create_engine(sqlite_url)
+# engine = create_engine(sqlite_url, connect_args={"check_same_thread": False}, echo=True)
+engine = create_engine(sqlite_url, connect_args={"check_same_thread": False})
 
 
 def create_db_and_tables():
@@ -69,7 +70,8 @@ def create_users():
             },
         ]
         for new_user in user_list:
-            user_db = User(**new_user)
+            # user_db = User(**new_user)
+            user_db = User.model_validate(new_user)
             user = session.exec(select(User).where(User.email == user_db.email)).first()
             if user is None:
                 logging.debug("Adding user with email %s", user_db.email)
@@ -77,16 +79,16 @@ def create_users():
         session.commit()
 
 
-def get_user_by_username(username: str):
-    with Session(engine) as session:
-        user = session.exec(select(User).where(User.username == username)).first()
-        return user
+# def get_user_by_username(username: str):
+#     with Session(engine) as session:
+#         user = session.exec(select(User).where(User.username == username)).first()
+#         return user
 
 
-def get_user_by_email(email: str):
-    with Session(engine) as session:
-        user = session.exec(select(User).where(User.email == email)).first()
-        return user
+# def get_user_by_email(email: str):
+#     with Session(engine) as session:
+#         user = session.exec(select(User).where(User.email == email)).first()
+#         return user
 
 
 def get_user_by_id_uuid(id_uuid: uuid.UUID):
@@ -151,7 +153,6 @@ def create_visits():
                 logging.debug("Adding event with start %s", visit_db.start)
                 session.add(visit_db)
         session.commit()
-
 
 
 # def create_heroes():

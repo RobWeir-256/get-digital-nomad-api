@@ -6,7 +6,7 @@ from fastapi.security import OAuth2PasswordBearer
 from jwt import ExpiredSignatureError, InvalidTokenError
 from sqlmodel import Session
 
-from .database import get_session, get_user_by_id_uuid, get_user_by_username
+from .database import get_session, get_user_by_id_uuid
 from .security import check_jwt
 from .models import TokenData, User
 
@@ -40,7 +40,6 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
         logging.error(repr(e))
         raise credentials_exception
 
-    # user = get_user_by_id_uuid(id=token_data.id)
     user = get_user_by_id_uuid(id_uuid=token_data.id_uuid)
     if user is None:
         logging.error("UserId %s is not found", token_data.id_uuid)
@@ -54,6 +53,7 @@ async def get_current_active_user(
     if current_user.disabled:
         raise HTTPException(status_code=400, detail="Inactive user")
     return current_user
+
 
 async def get_current_admin_user(
     current_user: Annotated[User, Depends(get_current_active_user)],
