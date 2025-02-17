@@ -1,12 +1,21 @@
 import logging
 from typing import Annotated
+import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from ..dependencies import get_current_active_user
-from ..models import User, UserCreate, UserPublic, UserPublicWithVisits, UserUpdate
+from ..models import (
+    User,
+    UserCreate,
+    UserPublic,
+    UserPublicWithVisits,
+    UserUpdate,
+    Visit,
+    VisitUserMePublic,
+)
 from ..database import get_session
 from ..security import get_password_hash
 
@@ -17,8 +26,12 @@ router = APIRouter(
     tags=["users"],
 )
 
+"""
+End-points for current logged in user
+"""
 
-@router.get("/me/", response_model=UserPublicWithVisits)
+
+@router.get("/me/", response_model=UserPublic)
 async def read_users_me(
     *,
     current_user: Annotated[User, Depends(get_current_active_user)],
@@ -32,11 +45,32 @@ async def read_users_me(
     return user
 
 
+@router.get("/me/visits/", response_model=list[VisitUserMePublic])
+async def read_users_me_visits(
+    *,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    session: Session = Depends(get_session),
+) -> list[Visit]:
+    user = session.get(User, current_user.id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
+
+    visits = session.exec(select(Visit).where(Visit.user_id == user.id)).all()
+    return visits
+
+
 @router.get("/me/items/")
 async def read_own_items(
     current_user: Annotated[User, Depends(get_current_active_user)],
 ):
-    return [{"item_id": "Foo", "owner": current_user.id_uuid}]
+    return [{"item_id": "Foo", "owner": current_user.id}]
+
+
+"""
+Standard CURD end-points
+"""
 
 
 @router.post("/", response_model=UserPublic)
@@ -80,7 +114,9 @@ async def read_users(
 
 
 @router.get("/{user_id}", response_model=UserPublicWithVisits)
-async def read_user(*, session: Session = Depends(get_session), user_id: int) -> User:
+async def read_user(
+    *, session: Session = Depends(get_session), user_id: uuid.UUID
+) -> User:
     user = session.get(User, user_id)
     if not user:
         raise HTTPException(
@@ -91,7 +127,7 @@ async def read_user(*, session: Session = Depends(get_session), user_id: int) ->
 
 @router.patch("/{user_id}", response_model=UserPublic)
 def update_user(
-    *, session: Session = Depends(get_session), user_id: int, user: UserUpdate
+    *, session: Session = Depends(get_session), user_id: uuid.UUID, user: UserUpdate
 ) -> User:
     db_user = session.get(User, user_id)
     if not db_user:
@@ -99,6 +135,7 @@ def update_user(
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
         )
     user_data = user.model_dump(exclude_unset=True)
+    # TODO - Check for password update, if there then needs hashing for storage in DB
     for key, value in user_data.items():
         setattr(db_user, key, value)
     session.add(db_user)
@@ -108,7 +145,7 @@ def update_user(
 
 
 @router.delete("/{user_id}")
-async def delete_user(*, session: Session = Depends(get_session), user_id: int):
+async def delete_user(*, session: Session = Depends(get_session), user_id: uuid.UUID):
     user = session.get(User, user_id)
     if not user:
         raise HTTPException(

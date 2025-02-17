@@ -4,9 +4,9 @@ from typing import Annotated
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jwt import ExpiredSignatureError, InvalidTokenError
-from sqlmodel import Session
+from sqlmodel import Session, select
 
-from .database import get_session, get_user_by_id_uuid
+from .database import get_session
 from .security import check_jwt
 from .models import TokenData, User
 
@@ -16,7 +16,10 @@ SessionDep = Annotated[Session, Depends(get_session)]
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/token")
 
 
-async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
+async def get_current_user(
+    token: Annotated[str, Depends(oauth2_scheme)],
+    session: Session = Depends(get_session),
+):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -40,7 +43,9 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
         logging.error(repr(e))
         raise credentials_exception
 
-    user = get_user_by_id_uuid(id_uuid=token_data.id_uuid)
+    # user = get_user_by_id(id=token_data.id_uuid)
+    user = session.exec(select(User).where(User.id == token_data.id_uuid)).first()
+
     if user is None:
         logging.error("UserId %s is not found", token_data.id_uuid)
         raise credentials_exception

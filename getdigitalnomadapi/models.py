@@ -4,6 +4,20 @@ from pydantic import EmailStr
 from sqlmodel import Field, Relationship, SQLModel
 
 """
+Token Model
+"""
+
+
+class Token(SQLModel):
+    access_token: str
+    token_type: str
+
+
+class TokenData(SQLModel):
+    id_uuid: uuid.UUID | None = None
+
+
+"""
 MySQLModel Model
     created_at: updated when record created with UTC time
     updated_at: updated when record last updated with UTC time
@@ -38,10 +52,7 @@ class UserBase(MySQLModel):
 
 
 class User(UserBase, table=True):
-    id: int | None = Field(default=None, primary_key=True)
-    id_uuid: uuid.UUID = Field(
-        default_factory=uuid.uuid4, index=True, unique=True
-    )  # Move this up to UserBase
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     hashed_password: str
 
     visits: list["Visit"] = Relationship(back_populates="user")
@@ -57,15 +68,15 @@ class UserCreate(SQLModel):
 
 
 class UserPublic(UserBase):
-    id_uuid: uuid.UUID
+    id: uuid.UUID
 
 
 class UserPublicWithVisits(UserPublic):
-    visits: list["Visit"]
+    visits: list["VisitPublicWithCountry"]
 
 
 class UserAdmin(UserPublicWithVisits):
-    id: int
+    pass
 
 
 class UserUpdate(SQLModel):
@@ -78,32 +89,38 @@ class UserUpdate(SQLModel):
 
 
 """
-Token Model
-"""
-
-
-class Token(SQLModel):
-    access_token: str
-    token_type: str
-
-
-class TokenData(SQLModel):
-    # username: str | None = None
-    id_uuid: uuid.UUID | None = None
-
-
-"""
 Country Model
 https://en.wikipedia.org/wiki/List_of_ISO_3166_country_codes
+https://github.com/lukes/ISO-3166-Countries-with-Regional-Codes/blob/master/all/all.csv
 """
 
 
-class Country(MySQLModel, table=True):
-    id: int | None = Field(default=None, primary_key=True)
+class CountryBase(MySQLModel):
     name: str = Field(index=True, unique=True)
-    official_state_name: str
+    # official_state_name: str
     code: str = Field(index=True, unique=True)
     schengen: bool = False
+
+
+class Country(CountryBase, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+
+    visits: list["Visit"] = Relationship(back_populates="country")
+
+
+class CountryCreate(CountryBase):
+    pass
+
+
+class CountryPublic(CountryBase):
+    id: int
+
+
+class CountryUpdate(SQLModel):
+    name: str | None = None
+    official_state_name: str | None = None
+    code: str | None = None
+    schengen: bool | None = None
 
 
 """
@@ -111,41 +128,46 @@ Visit Model
 """
 
 
-class Visit(MySQLModel, table=True):
-    id: int | None = Field(default=None, primary_key=True)
+class VisitBase(MySQLModel):
     start: date
     end: date | None
-    still_visiting: bool = False
-    user_id: int | None = Field(default=None, foreign_key="user.id")
+    # still_visiting: bool = False
+
+
+class Visit(VisitBase, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+
     user: User | None = Relationship(back_populates="visits")
+    user_id: uuid.UUID | None = Field(default=None, foreign_key="user.id")
+    country: Country | None = Relationship(back_populates="visits")
+    country_id: int | None = Field(default=None, foreign_key="country.id")
 
 
-"""
-Hero and Team Model
-"""
+class VisitCreate(VisitBase):
+    pass
 
 
-# class HeroTeamLink(SQLModel, table=True):
-#     team_id: int | None = Field(default=None, foreign_key="team.id", primary_key=True)
-#     hero_id: int | None = Field(default=None, foreign_key="hero.id", primary_key=True)
-#     is_training: bool = False
-
-#     team: "Team" = Relationship(back_populates="hero_links")
-#     hero: "Hero" = Relationship(back_populates="team_links")
+class VisitPublic(VisitBase):
+    id: int
+    user_id: uuid.UUID | None = Field(default=None, foreign_key="user.id")
+    country_id: int | None = Field(default=None, foreign_key="country.id")
 
 
-# class Team(SQLModel, table=True):
-#     id: int | None = Field(default=None, primary_key=True)
-#     name: str = Field(index=True)
-#     headquarters: str
-
-#     hero_links: list[HeroTeamLink] = Relationship(back_populates="team")
+class VisitUpdate(SQLModel):
+    start: date | None = None
+    end: date | None = None
+    still_visiting: bool | None = None
 
 
-# class Hero(SQLModel, table=True):
-#     id: int | None = Field(default=None, primary_key=True)
-#     name: str = Field(index=True)
-#     secret_name: str
-#     age: int | None = Field(default=None, index=True)
+class VisitPublicWithCountry(VisitPublic):
+    country: CountryPublic
 
-#     team_links: list[HeroTeamLink] = Relationship(back_populates="hero")
+
+class VisitPublicWithCountryAndUser(VisitPublic):
+    country: CountryPublic
+    user: UserPublic
+
+
+class VisitUserMePublic(VisitBase):
+    id: int
+    country_id: int
