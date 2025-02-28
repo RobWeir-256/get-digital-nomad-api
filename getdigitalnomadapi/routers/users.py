@@ -1,10 +1,12 @@
 import logging
-from typing import Annotated
 import uuid
+from datetime import date
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.exc import IntegrityError
-from sqlmodel import select
+from sqlalchemy.sql.operators import is_
+from sqlmodel import or_, select
 
 from ..dependencies import SessionDep, get_current_active_user
 from ..models import (
@@ -56,6 +58,7 @@ async def read_users_me_visits(
     *,
     current_user: Annotated[User, Depends(get_current_active_user)],
     session: SessionDep,
+    start_dt: date | None = None,
 ) -> list[Visit]:
     user = session.get(User, current_user.id)
     if not user:
@@ -63,8 +66,14 @@ async def read_users_me_visits(
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
         )
 
+    if start_dt is None:
+        start_dt = date.min
+
     visits = session.exec(
-        select(Visit).where(Visit.user_id == user.id).order_by(Visit.start.asc())
+        select(Visit)
+        .where(Visit.user_id == user.id)
+        .where(or_(Visit.end >= start_dt, is_(Visit.end, None)))
+        .order_by(Visit.start.asc())
     ).all()
     return visits
 
