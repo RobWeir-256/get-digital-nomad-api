@@ -1,5 +1,6 @@
-from datetime import date, datetime, timezone
 import uuid
+from datetime import date, datetime, timezone
+
 from pydantic import EmailStr
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -49,6 +50,9 @@ class UserBase(MySQLModel):
     full_name: str
     disabled: bool = True
     admin: bool = False
+    email_validated: bool = (
+        False  # TODO - send email for confirmation before enabling user access
+    )
 
 
 class User(UserBase, table=True):

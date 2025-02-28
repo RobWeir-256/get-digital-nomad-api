@@ -1,11 +1,11 @@
 import csv
-from datetime import datetime
 import logging
-import uuid
-from sqlmodel import SQLModel, Session, create_engine, select
+from datetime import datetime
 
-from .security import get_password_hash
+from sqlmodel import Session, SQLModel, create_engine, select
+
 from .models import Country, User, Visit
+from .security import get_password_hash
 
 logger = logging.getLogger(__name__)
 
@@ -110,7 +110,6 @@ def create_users():
         session.commit()
 
 
-
 def create_visits():
     with Session(engine) as session:
         with open("./data/visits.csv", mode="r") as file:
@@ -133,17 +132,17 @@ def create_visits():
                         id=line.get("id"),
                         start=datetime.strptime(line.get("start"), "%Y-%m-%d").date(),
                         end=end_dt,
-                        user_id=user.id,
-                        country_id=country.id,
+                        user=user,
+                        country=country,
                     )
+                    session.add(visit_db)
                     logging.debug(
                         "Adding visit with id='%s', start='%s', end='%s', user_id='%s', country_it='%s'",
                         visit_db.id,
                         visit_db.start,
                         visit_db.end,
-                        visit_db.user_id,
-                        visit_db.country_id,
+                        visit_db.user.id,
+                        visit_db.country.id,
                     )
-                    session.add(visit_db)
 
             session.commit()

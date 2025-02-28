@@ -1,13 +1,14 @@
-from datetime import timedelta
 import logging
+from datetime import timedelta
 from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
-from sqlmodel import Session, select
+from sqlmodel import select
 
-from ..database import get_session
-from ..security import create_access_token, verify_password
+from ..dependencies import SessionDep
 from ..models import Token, User
+from ..security import create_access_token, verify_password
 
 logger = logging.getLogger(__name__)
 
@@ -21,9 +22,7 @@ router = APIRouter(
 
 @router.post("/")
 async def login_for_access_token(
-    *,
-    session: Session = Depends(get_session),
-    form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
+    *, session: SessionDep, form_data: Annotated[OAuth2PasswordRequestForm, Depends()]
 ) -> Token:
     email = form_data.username
     user = session.exec(select(User).where(User.email == email)).first()

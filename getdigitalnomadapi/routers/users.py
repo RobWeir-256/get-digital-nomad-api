@@ -4,9 +4,9 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.exc import IntegrityError
-from sqlmodel import Session, select
+from sqlmodel import select
 
-from ..dependencies import get_current_active_user
+from ..dependencies import SessionDep, get_current_active_user
 from ..models import (
     User,
     UserCreate,
@@ -16,7 +16,6 @@ from ..models import (
     Visit,
     VisitUserMePublic,
 )
-from ..database import get_session
 from ..security import get_password_hash
 
 logger = logging.getLogger(__name__)
@@ -35,7 +34,7 @@ End-points for current logged in user
 async def read_users_me(
     *,
     current_user: Annotated[User, Depends(get_current_active_user)],
-    session: Session = Depends(get_session),
+    session: SessionDep,
 ) -> User:
     user = session.get(User, current_user.id)
     if not user:
@@ -45,11 +44,18 @@ async def read_users_me(
     return user
 
 
+@router.get("/me/items/")
+async def read_own_items(
+    *, current_user: Annotated[User, Depends(get_current_active_user)]
+):
+    return [{"item_id": "Foo", "owner": current_user.id}]
+
+
 @router.get("/me/visits/", response_model=list[VisitUserMePublic])
 async def read_users_me_visits(
     *,
     current_user: Annotated[User, Depends(get_current_active_user)],
-    session: Session = Depends(get_session),
+    session: SessionDep,
 ) -> list[Visit]:
     user = session.get(User, current_user.id)
     if not user:
@@ -57,15 +63,10 @@ async def read_users_me_visits(
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
         )
 
-    visits = session.exec(select(Visit).where(Visit.user_id == user.id)).all()
+    visits = session.exec(
+        select(Visit).where(Visit.user_id == user.id).order_by(Visit.start.asc())
+    ).all()
     return visits
-
-
-@router.get("/me/items/")
-async def read_own_items(
-    current_user: Annotated[User, Depends(get_current_active_user)],
-):
-    return [{"item_id": "Foo", "owner": current_user.id}]
 
 
 """
@@ -74,9 +75,7 @@ Standard CURD end-points
 
 
 @router.post("/", response_model=UserPublic)
-async def create_user(
-    *, session: Session = Depends(get_session), user: UserCreate
-) -> User:
+async def create_user(*, session: SessionDep, user: UserCreate) -> User:
     hashed_password = get_password_hash(user.password)
     user = User(**user.dict(), hashed_password=hashed_password)
     db_user = User.model_validate(user)
@@ -105,7 +104,7 @@ These endpoints require admin permission so are under internal.admin.py
 @router.get("/", response_model=list[UserPublic])
 async def read_users(
     *,
-    session: Session = Depends(get_session),
+    session: SessionDep,
     offset: int = 0,
     limit: int = Query(default=100, le=100),
 ) -> list[User]:
@@ -114,9 +113,7 @@ async def read_users(
 
 
 @router.get("/{user_id}", response_model=UserPublicWithVisits)
-async def read_user(
-    *, session: Session = Depends(get_session), user_id: uuid.UUID
-) -> User:
+async def read_user(*, session: SessionDep, user_id: uuid.UUID) -> User:
     user = session.get(User, user_id)
     if not user:
         raise HTTPException(
@@ -126,9 +123,7 @@ async def read_user(
 
 
 @router.patch("/{user_id}", response_model=UserPublic)
-def update_user(
-    *, session: Session = Depends(get_session), user_id: uuid.UUID, user: UserUpdate
-) -> User:
+def update_user(*, session: SessionDep, user_id: uuid.UUID, user: UserUpdate) -> User:
     db_user = session.get(User, user_id)
     if not db_user:
         raise HTTPException(
@@ -145,7 +140,7 @@ def update_user(
 
 
 @router.delete("/{user_id}")
-async def delete_user(*, session: Session = Depends(get_session), user_id: uuid.UUID):
+async def delete_user(*, session: SessionDep, user_id: uuid.UUID):
     user = session.get(User, user_id)
     if not user:
         raise HTTPException(

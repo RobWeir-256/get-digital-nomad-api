@@ -1,6 +1,7 @@
 import logging
-import jwt
 from datetime import datetime, timedelta, timezone
+
+import jwt
 from passlib.context import CryptContext
 
 logger = logging.getLogger(__name__)

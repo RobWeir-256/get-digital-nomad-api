@@ -5,6 +5,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from ..database import get_session
+from ..dependencies import SessionDep
 from ..models import (
     Country,
     CountryCreate,
@@ -21,9 +22,7 @@ router = APIRouter(
 
 
 @router.post("/", response_model=CountryPublic)
-async def create_country(
-    *, session: Session = Depends(get_session), country: CountryCreate
-) -> Country:
+async def create_country(*, session: SessionDep, country: CountryCreate) -> Country:
     db_country = Country.model_validate(country)
     try:
         session.add(db_country)
@@ -53,9 +52,7 @@ async def read_countries(
 
 
 @router.get("/{country_id}", response_model=CountryPublic)
-async def read_country(
-    *, session: Session = Depends(get_session), country_id: int
-) -> Country:
+async def read_country(*, session: SessionDep, country_id: int) -> Country:
     country = session.get(Country, country_id)
     if not country:
         raise HTTPException(
@@ -66,7 +63,7 @@ async def read_country(
 
 @router.patch("/{country_id}", response_model=CountryPublic)
 def update_country(
-    *, session: Session = Depends(get_session), country_id: int, country: CountryUpdate
+    *, session: SessionDep, country_id: int, country: CountryUpdate
 ) -> Country:
     db_country = session.get(Country, country_id)
     if not db_country:
@@ -83,7 +80,7 @@ def update_country(
 
 
 @router.delete("/{country_id}")
-async def delete_country(*, session: Session = Depends(get_session), country_id: int):
+async def delete_country(*, session: SessionDep, country_id: int):
     country = session.get(Country, country_id)
     if not country:
         raise HTTPException(

@@ -1,10 +1,10 @@
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, status
 from sqlalchemy.exc import IntegrityError
-from sqlmodel import Session, select
+from sqlmodel import select
 
-from ..database import get_session
+from ..dependencies import SessionDep
 from ..models import (
     Visit,
     VisitCreate,
@@ -22,9 +22,7 @@ router = APIRouter(
 
 
 @router.post("/", response_model=VisitPublic)
-async def create_visit(
-    *, session: Session = Depends(get_session), visit: VisitCreate
-) -> Visit:
+async def create_visit(*, session: SessionDep, visit: VisitCreate) -> Visit:
     db_visit = Visit.model_validate(visit)
     try:
         session.add(db_visit)
@@ -44,19 +42,14 @@ async def create_visit(
 
 @router.get("/", response_model=list[VisitPublic])
 async def read_visits(
-    *,
-    session: Session = Depends(get_session),
-    offset: int = 0,
-    limit: int = Query(default=100, le=100),
+    *, session: SessionDep, offset: int = 0, limit: int = Query(default=100, le=100)
 ) -> list[Visit]:
     visits = session.exec(select(Visit).offset(offset).limit(limit)).all()
     return visits
 
 
 @router.get("/{visit_id}", response_model=VisitPublicWithCountryAndUser)
-async def read_visit(
-    *, session: Session = Depends(get_session), visit_id: int
-) -> Visit:
+async def read_visit(*, session: SessionDep, visit_id: int) -> Visit:
     visit = session.get(Visit, visit_id)
     if not visit:
         raise HTTPException(
@@ -66,9 +59,7 @@ async def read_visit(
 
 
 @router.patch("/{visit_id}", response_model=VisitPublic)
-def update_visit(
-    *, session: Session = Depends(get_session), visit_id: int, visit: VisitUpdate
-) -> Visit:
+def update_visit(*, session: SessionDep, visit_id: int, visit: VisitUpdate) -> Visit:
     db_visit = session.get(Visit, visit_id)
     if not db_visit:
         raise HTTPException(
@@ -84,7 +75,7 @@ def update_visit(
 
 
 @router.delete("/{visit_id}")
-async def delete_visit(*, session: Session = Depends(get_session), visit_id: int):
+async def delete_visit(*, session: SessionDep, visit_id: int):
     visit = session.get(Visit, visit_id)
     if not visit:
         raise HTTPException(
