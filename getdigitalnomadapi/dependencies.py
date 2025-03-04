@@ -27,6 +27,7 @@ async def get_current_user(
     try:
         payload = check_jwt(token)
         user_id_str: str = payload.get("sub")
+        print(user_id_str)
         if user_id_str is None:
             logging.error("payload sub:id is None")
             raise credentials_exception

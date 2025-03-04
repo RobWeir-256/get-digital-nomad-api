@@ -17,6 +17,7 @@ from ..models import (
     UserUpdate,
     Visit,
     VisitUserMePublic,
+    VisitsUserMePublicSummary,
 )
 from ..security import get_password_hash
 
@@ -26,57 +27,6 @@ router = APIRouter(
     prefix="/users",
     tags=["users"],
 )
-
-"""
-End-points for current logged in user
-"""
-
-
-@router.get("/me/", response_model=UserPublic)
-async def read_users_me(
-    *,
-    current_user: Annotated[User, Depends(get_current_active_user)],
-    session: SessionDep,
-) -> User:
-    user = session.get(User, current_user.id)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
-        )
-    return user
-
-
-@router.get("/me/items/")
-async def read_own_items(
-    *, current_user: Annotated[User, Depends(get_current_active_user)]
-):
-    return [{"item_id": "Foo", "owner": current_user.id}]
-
-
-@router.get("/me/visits/", response_model=list[VisitUserMePublic])
-async def read_users_me_visits(
-    *,
-    current_user: Annotated[User, Depends(get_current_active_user)],
-    session: SessionDep,
-    start_dt: date | None = None,
-) -> list[Visit]:
-    user = session.get(User, current_user.id)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
-        )
-
-    if start_dt is None:
-        start_dt = date.min
-
-    visits = session.exec(
-        select(Visit)
-        .where(Visit.user_id == user.id)
-        .where(or_(Visit.end >= start_dt, is_(Visit.end, None)))
-        .order_by(Visit.start.asc())
-    ).all()
-    return visits
-
 
 """
 Standard CURD end-points

@@ -6,7 +6,7 @@ from fastapi import APIRouter, FastAPI
 
 from .database import create_db_and_tables, seed_db
 from .internal import admin
-from .routers import countries, token, users, visits
+from .routers import countries, token, users, visits, me
 
 PREFIX_API_V1 = "/api/v1"
 
@@ -43,17 +43,8 @@ app = FastAPI(lifespan=lifespan)
 api_v1_router = APIRouter(prefix=PREFIX_API_V1)
 api_v1_router.include_router(token.router)
 api_v1_router.include_router(users.router)
+api_v1_router.include_router(me.router)
 api_v1_router.include_router(admin.router)
 api_v1_router.include_router(countries.router)
 api_v1_router.include_router(visits.router)
 app.include_router(api_v1_router)
-
-
-# @app.on_event("startup")
-# def on_startup():
-#     create_db_and_tables()
-#     # seed()
-
-
-# if __name__ == "__main__":
-#     main()

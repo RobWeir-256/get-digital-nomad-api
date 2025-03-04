@@ -45,7 +45,7 @@ async def read_countries(
     *,
     session: Session = Depends(get_session),
     offset: int = 0,
-    limit: int = Query(default=100, le=100),
+    limit: int = Query(default=1000, le=1000),
 ) -> list[Country]:
     countries = session.exec(select(Country).offset(offset).limit(limit)).all()
     return countries

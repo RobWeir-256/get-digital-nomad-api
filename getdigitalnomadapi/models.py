@@ -172,6 +172,13 @@ class VisitPublicWithCountryAndUser(VisitPublic):
     user: UserPublic
 
 
-class VisitUserMePublic(VisitBase):
+class VisitUserMePublic(SQLModel):
     id: int
     country_id: int
+    start: date | None
+    end: date | None
+
+
+class VisitsUserMePublicSummary(SQLModel):
+    num_visit: int
+    visits: list[VisitUserMePublic]
