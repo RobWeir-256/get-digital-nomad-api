@@ -42,7 +42,7 @@ async def create_visit(*, session: SessionDep, visit: VisitCreate) -> Visit:
 
 @router.get("/", response_model=list[VisitPublic])
 async def read_visits(
-    *, session: SessionDep, offset: int = 0, limit: int = Query(default=100, le=100)
+    *, session: SessionDep, offset: int = 0, limit: int = Query(default=1000, le=1000)
 ) -> list[Visit]:
     visits = session.exec(select(Visit).offset(offset).limit(limit)).all()
     return visits

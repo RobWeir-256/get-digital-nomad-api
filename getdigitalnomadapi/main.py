@@ -4,7 +4,6 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, FastAPI
 
-from .database import create_db_and_tables, seed_db
 from .internal import admin
 from .routers import countries, token, users, visits, me
 
@@ -32,8 +31,6 @@ logging.getLogger("python_multipart").setLevel(logging.INFO)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    create_db_and_tables()
-    seed_db()
     yield
     logger.info("Exiting App")
 
@@ -42,9 +39,9 @@ app = FastAPI(lifespan=lifespan)
 
 api_v1_router = APIRouter(prefix=PREFIX_API_V1)
 api_v1_router.include_router(token.router)
-api_v1_router.include_router(users.router)
 api_v1_router.include_router(me.router)
 api_v1_router.include_router(admin.router)
+api_v1_router.include_router(users.router)
 api_v1_router.include_router(countries.router)
 api_v1_router.include_router(visits.router)
 app.include_router(api_v1_router)

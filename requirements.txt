@@ -7,3 +7,4 @@ python-dotenv
 python-multipart
 sqlmodel
 alembic
+pandas
